@@ -1,6 +1,6 @@
 opencv-python
 torch
-torchvision
+torchvision==0.15.2
 natsort
 pytorchvideo
 scipy
