@@ -8,7 +8,7 @@ process = None
 from pyngrok import ngrok
 app = Flask(__name__)
 
-ngrok.set_auth_token("2g4zRibakfvSmk1aplg3XxGaGKI_3dyAzuscSvpjZo6fxA5KV")
+ngrok.set_auth_token("3Ah3ScDXd7qw9TuTy74YKwddTJd_ttmDnP8PY6KFVh6ebpqY")
 public_url=ngrok.connect(5000).public_url
 print(public_url)
 
@@ -55,3 +55,4 @@ def videoProcess():
 
 if __name__ == "__main__":
     app.run(port = 5000)
+
