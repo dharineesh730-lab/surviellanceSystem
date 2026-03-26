@@ -24,6 +24,21 @@ class DeepSort(object):
         self.tracker = Tracker(metric, max_iou_distance=max_iou_distance, max_age=max_age, n_init=n_init)
 
     def update(self, bbox_xywh, confidences, labels, ori_img):
+        """
+        Update tracker with new detections for the current frame.
+
+        Parameters
+        ----------
+        bbox_xywh   : Tensor/ndarray (N, 4) — center_x, center_y, w, h
+        confidences : Tensor/ndarray (N, 1) — detection confidence scores
+        labels      : list[int]             — class IDs per detection
+        ori_img     : ndarray (H, W, 3)     — RGB image (used for ReID crop)
+
+        Returns
+        -------
+        outputs : ndarray (M, 8) — [x1, y1, x2, y2, class, track_id, vx, vy]
+                  One row per confirmed active track.
+        """
         self.height, self.width = ori_img.shape[:2]
         # generate detections
         
@@ -32,7 +47,13 @@ class DeepSort(object):
         else:
             features = np.array([np.array([0.5,0.5]) for _ in range(len(bbox_xywh))])
         bbox_tlwh = self._xywh_to_tlwh(bbox_xywh)
-        detections = [Detection(bbox_tlwh[i], conf, labels[i], features[i]) for i,conf in enumerate(confidences) if conf>self.min_confidence]
+        # Use float(conf) to safely convert Tensor scalars (shape [1]) to Python
+        # floats before comparing — avoids ambiguous Tensor boolean evaluation.
+        detections = [
+            Detection(bbox_tlwh[i], float(conf), labels[i], features[i])
+            for i, conf in enumerate(confidences)
+            if float(conf) > self.min_confidence
+        ]
 
         # run on non-maximum supression
         # boxes = np.array([d.tlwh for d in detections])
@@ -61,19 +82,18 @@ class DeepSort(object):
         return outputs
 
 
-    """
-    TODO:
-        Convert bbox from xc_yc_w_h to xtl_ytl_w_h
-    Thanks JieChen91@github.com for reporting this bug!
-    """
     @staticmethod
     def _xywh_to_tlwh(bbox_xywh):
+        """
+        Convert bounding boxes from center format (cx, cy, w, h)
+        to top-left format (x_tl, y_tl, w, h).
+        """
         if isinstance(bbox_xywh, np.ndarray):
             bbox_tlwh = bbox_xywh.copy()
         elif isinstance(bbox_xywh, torch.Tensor):
             bbox_tlwh = bbox_xywh.clone()
-        bbox_tlwh[:,0] = bbox_xywh[:,0] - bbox_xywh[:,2]/2.
-        bbox_tlwh[:,1] = bbox_xywh[:,1] - bbox_xywh[:,3]/2.
+        bbox_tlwh[:, 0] = bbox_xywh[:, 0] - bbox_xywh[:, 2] / 2.0
+        bbox_tlwh[:, 1] = bbox_xywh[:, 1] - bbox_xywh[:, 3] / 2.0
         return bbox_tlwh
 
 
@@ -87,25 +107,24 @@ class DeepSort(object):
 
     def _tlwh_to_xyxy(self, bbox_tlwh):
         """
-        TODO:
-            Convert bbox from xtl_ytl_w_h to xc_yc_w_h
-        Thanks JieChen91@github.com for reporting this bug!
+        Convert bounding box from top-left format (x_tl, y_tl, w, h)
+        to corner format (x1, y1, x2, y2), clipped to image boundaries.
         """
-        x,y,w,h = bbox_tlwh
-        x1 = max(int(x),0)
-        x2 = min(int(x+w),self.width-1)
-        y1 = max(int(y),0)
-        y2 = min(int(y+h),self.height-1)
-        return x1,y1,x2,y2
+        x, y, w, h = bbox_tlwh
+        x1 = max(int(x), 0)
+        x2 = min(int(x + w), self.width - 1)
+        y1 = max(int(y), 0)
+        y2 = min(int(y + h), self.height - 1)
+        return x1, y1, x2, y2
 
     def _xyxy_to_tlwh(self, bbox_xyxy):
-        x1,y1,x2,y2 = bbox_xyxy
-
+        """Convert corner format (x1,y1,x2,y2) to top-left format (x_tl,y_tl,w,h)."""
+        x1, y1, x2, y2 = bbox_xyxy
         t = x1
         l = y1
-        w = int(x2-x1)
-        h = int(y2-y1)
-        return t,l,w,h
+        w = int(x2 - x1)
+        h = int(y2 - y1)
+        return t, l, w, h
     
     def _get_features(self, bbox_xywh, ori_img):
         im_crops = []
