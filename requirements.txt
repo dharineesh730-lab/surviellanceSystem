@@ -5,27 +5,23 @@
 #   pip install -r requirements.txt
 
 # Deep learning
-# NOTE: torchvision MUST be pinned to 0.15.2 — pytorchvideo depends on
-# torchvision.transforms.functional_tensor which was removed in 0.16+.
-torch==2.0.1
-torchvision==0.15.2
+torch>=2.0.0
+torchvision>=0.15.0
 
 # SlowFast + video transforms
-pytorchvideo==0.1.5
+pytorchvideo>=0.1.5
 
-# Person detection — YOLOv8 (replaces old YOLOv5 torch.hub call)
+# Person detection — YOLOv8
 ultralytics>=8.0.0
 
 # Tracking (Kalman filter + linear assignment)
 scipy>=1.9.0
 
 # Array / numerical
-# NOTE: must be <2 — torch 2.0.1 was compiled against NumPy 1.x
-numpy>=1.23.0,<2.0
+numpy>=1.23.0
 
 # Video & image I/O
-# NOTE: must be <4.10 — opencv 4.10+ requires numpy>=2, incompatible with torch 2.0.1
-opencv-python>=4.7.0,<4.10
+opencv-python>=4.7.0
 
 # Environment variables (.env support)
 python-dotenv>=1.0.0
