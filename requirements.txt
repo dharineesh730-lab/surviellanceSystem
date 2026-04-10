@@ -32,3 +32,6 @@ python-dotenv>=1.0.0
 
 # HTTP requests (Telegram alerting)
 requests>=2.28.0
+
+# Web UI
+flask>=3.0.0

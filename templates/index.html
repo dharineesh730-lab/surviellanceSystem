@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Surveillance System — Action Recognition</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f111a;
+      --surface: #1a1d2e;
+      --surface2: #232640;
+      --surface3: #2a2d48;
+      --border: #2e3150;
+      --text: #e2e8f0;
+      --text-muted: #8892b0;
+      --accent: #7c3aed;
+      --accent-light: #a78bfa;
+      --accent-glow: rgba(124,58,237,0.25);
+      --danger: #ef4444;
+      --danger-bg: rgba(239,68,68,0.12);
+      --success: #22c55e;
+      --success-bg: rgba(34,197,94,0.12);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245,158,11,0.12);
+      --radius: 14px;
+      --radius-sm: 10px;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Abstract background ────────────────── */
+    .bg-shapes {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    /* Grid pattern */
+    .bg-grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(124,58,237,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,58,237,0.04) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 20%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 20%, transparent 70%);
+    }
+
+    /* Gradient mesh blobs — no circles, organic shapes via border-radius */
+    .bg-blob {
+      position: absolute;
+      filter: blur(120px);
+      opacity: 0;
+      animation: blobFade 2s ease forwards;
+    }
+    .bg-blob-1 {
+      width: 800px; height: 500px;
+      background: linear-gradient(135deg, var(--accent), #6d28d9);
+      border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+      top: -180px; right: -200px;
+      opacity: 0.1;
+      animation: blobDrift1 25s ease-in-out infinite, blobMorph1 15s ease-in-out infinite;
+    }
+    .bg-blob-2 {
+      width: 700px; height: 450px;
+      background: linear-gradient(135deg, #ec4899, #8b5cf6);
+      border-radius: 60% 40% 30% 70% / 50% 60% 40% 50%;
+      bottom: -120px; left: -200px;
+      opacity: 0.08;
+      animation: blobDrift2 30s ease-in-out infinite, blobMorph2 18s ease-in-out infinite;
+    }
+    .bg-blob-3 {
+      width: 500px; height: 350px;
+      background: linear-gradient(135deg, #06b6d4, #7c3aed);
+      border-radius: 50% 50% 30% 70% / 60% 40% 60% 40%;
+      top: 40%; left: 15%;
+      opacity: 0.06;
+      animation: blobDrift3 22s ease-in-out infinite, blobMorph1 20s ease-in-out infinite reverse;
+    }
+    .bg-blob-4 {
+      width: 400px; height: 300px;
+      background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+      border-radius: 30% 70% 50% 50% / 50% 30% 70% 50%;
+      bottom: 15%; right: 5%;
+      opacity: 0.07;
+      animation: blobDrift1 28s ease-in-out infinite reverse, blobMorph2 16s ease-in-out infinite;
+    }
+
+    /* Diagonal lines */
+    .bg-line {
+      position: absolute;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(124,58,237,0.08), transparent);
+      transform-origin: center;
+    }
+    .bg-line-1 {
+      width: 100%; top: 25%;
+      transform: rotate(-3deg);
+      animation: linePulse 8s ease-in-out infinite;
+    }
+    .bg-line-2 {
+      width: 80%; top: 55%; left: 10%;
+      transform: rotate(2deg);
+      animation: linePulse 10s ease-in-out infinite 2s;
+    }
+    .bg-line-3 {
+      width: 60%; top: 80%; left: 20%;
+      transform: rotate(-1.5deg);
+      animation: linePulse 12s ease-in-out infinite 4s;
+    }
+
+    /* Corner accents — small triangular shapes */
+    .bg-corner {
+      position: absolute;
+      width: 0; height: 0;
+      opacity: 0.05;
+    }
+    .bg-corner-tl {
+      top: 0; left: 0;
+      border-top: 200px solid rgba(124,58,237,0.15);
+      border-right: 200px solid transparent;
+    }
+    .bg-corner-br {
+      bottom: 0; right: 0;
+      border-bottom: 150px solid rgba(236,72,153,0.12);
+      border-left: 150px solid transparent;
+    }
+
+    @keyframes blobDrift1 {
+      0%, 100% { transform: translate(0, 0); }
+      25%      { transform: translate(40px, -30px); }
+      50%      { transform: translate(20px, 20px); }
+      75%      { transform: translate(-30px, -10px); }
+    }
+    @keyframes blobDrift2 {
+      0%, 100% { transform: translate(0, 0); }
+      25%      { transform: translate(-35px, 20px); }
+      50%      { transform: translate(15px, -25px); }
+      75%      { transform: translate(25px, 15px); }
+    }
+    @keyframes blobDrift3 {
+      0%, 100% { transform: translate(0, 0); }
+      33%      { transform: translate(20px, -35px); }
+      66%      { transform: translate(-25px, 20px); }
+    }
+    @keyframes blobMorph1 {
+      0%, 100% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; }
+      50%      { border-radius: 60% 40% 30% 70% / 50% 60% 40% 50%; }
+    }
+    @keyframes blobMorph2 {
+      0%, 100% { border-radius: 60% 40% 30% 70% / 50% 60% 40% 50%; }
+      50%      { border-radius: 30% 70% 60% 40% / 60% 30% 70% 40%; }
+    }
+    @keyframes linePulse {
+      0%, 100% { opacity: 0.3; }
+      50%      { opacity: 0.8; }
+    }
+    @keyframes blobFade {
+      to { opacity: 1; }
+    }
+
+    .header, .container { position: relative; z-index: 1; }
+
+    /* ── Settings disabled state ─────────────── */
+    .settings-locked {
+      position: relative;
+      pointer-events: none;
+    }
+    .settings-locked .card-body {
+      opacity: 0.4;
+      filter: grayscale(0.3);
+      transition: opacity 0.4s, filter 0.4s;
+    }
+    .settings-lock-banner {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: rgba(124,58,237,0.1);
+      border-bottom: 1px solid rgba(124,58,237,0.15);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent-light);
+    }
+    .settings-locked .settings-lock-banner {
+      display: flex;
+    }
+
+    /* ── Animations ─────────────────────────── */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-4px); }
+    }
+    @keyframes pulse { 0%, 100% { opacity:1; } 50% { opacity:0.3; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes progressShimmer {
+      0%   { background-position: -100% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes badgeBounce {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+    @keyframes checkPop {
+      0%   { transform: scale(0); opacity:0; }
+      60%  { transform: scale(1.2); }
+      100% { transform: scale(1); opacity:1; }
+    }
+
+    /* ── Header ─────────────────────────────── */
+    .header {
+      background: linear-gradient(180deg, var(--surface) 0%, rgba(26,29,46,0.97) 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      animation: fadeIn 0.5s ease;
+    }
+    .header-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--accent), #ec4899);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(124,58,237,0.3);
+      animation: float 3s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    .header-icon svg { width: 22px; height: 22px; color: #fff; }
+    .header h1 { font-size: 17px; font-weight: 700; }
+    .header p { font-size: 12px; color: var(--text-muted); }
+    .pipeline-badge {
+      margin-left: auto;
+      display: flex; gap: 6px; align-items: center;
+    }
+    .badge {
+      font-size: 10px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+    .badge:hover {
+      border-color: var(--accent);
+      color: var(--accent-light);
+      transform: translateY(-1px);
+    }
+
+    /* ── Layout ──────────────────────────────── */
+    .container {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 24px;
+      align-items: start;
+    }
+    @media (max-width: 1024px) {
+      .container { grid-template-columns: 1fr; }
+      .right-col { position: static !important; }
+    }
+    .right-col {
+      position: sticky;
+      top: 80px;
+    }
+
+    /* ── Cards ───────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+      animation: fadeInUp 0.45s ease backwards;
+    }
+    .card:hover {
+      border-color: rgba(124,58,237,0.2);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+    }
+    .card-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 13px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card-body { padding: 18px; }
+    .mt { margin-top: 20px; }
+
+    /* ── Upload zone ─────────────────────────── */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 44px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.35s cubic-bezier(0.4,0,0.2,1);
+      position: relative;
+      overflow: hidden;
+    }
+    .upload-zone::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(124,58,237,0.06) 0%, transparent 70%);
+      opacity: 0; transition: opacity 0.4s;
+    }
+    .upload-zone:hover::before, .upload-zone.drag-over::before { opacity: 1; }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(124,58,237,0.03);
+    }
+    .upload-zone .upload-icon {
+      width: 52px; height: 52px;
+      margin: 0 auto 14px;
+      background: rgba(124,58,237,0.1);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.35s;
+    }
+    .upload-zone:hover .upload-icon {
+      background: rgba(124,58,237,0.2);
+      transform: scale(1.06);
+    }
+    .upload-zone .upload-icon svg { width: 26px; height: 26px; color: var(--accent-light); }
+    .upload-zone h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .upload-zone p { font-size: 12px; color: var(--text-muted); }
+    .upload-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    }
+
+    /* ── File preview ────────────────────────── */
+    .file-preview {
+      display: none; align-items: center; gap: 12px;
+      padding: 12px 16px;
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      margin-top: 14px;
+      border: 1px solid var(--border);
+      animation: fadeInUp 0.3s ease;
+    }
+    .file-preview.visible { display: flex; }
+    .file-icon {
+      width: 40px; height: 40px;
+      background: rgba(124,58,237,0.15);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .file-info { flex: 1; min-width: 0; }
+    .file-info .name {
+      font-size: 13px; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .file-info .size { font-size: 11px; color: var(--text-muted); }
+    .file-remove {
+      background: none; border: none;
+      color: var(--text-muted); cursor: pointer;
+      font-size: 20px; line-height: 1; padding: 6px;
+      border-radius: 6px; transition: all 0.2s;
+    }
+    .file-remove:hover { color: var(--danger); background: var(--danger-bg); }
+
+    /* ── Form ────────────────────────────────── */
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10px; font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.6px;
+      margin-bottom: 6px;
+    }
+    .form-hint {
+      font-size: 10.5px; color: var(--text-muted); font-weight: 400;
+      margin-top: 5px; line-height: 1.5;
+      text-transform: none; letter-spacing: 0; opacity: 0.7; padding-left: 2px;
+    }
+    select, input[type="number"] {
+      width: 100%; padding: 8px 11px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text); font-size: 12px; font-family: inherit;
+      outline: none; transition: all 0.25s; cursor: pointer;
+    }
+    select:hover { border-color: rgba(124,58,237,0.3); }
+    select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    select option { background: var(--surface2); }
+    .range-row { display: flex; align-items: center; gap: 10px; }
+    .range-row input[type="range"] {
+      flex: 1; -webkit-appearance: none; height: 5px;
+      border-radius: 3px; background: var(--border); border: none; outline: none;
+    }
+    .range-row input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px;
+      border-radius: 50%; background: var(--accent); cursor: pointer;
+      box-shadow: 0 2px 8px rgba(124,58,237,0.4); transition: all 0.2s;
+    }
+    .range-row input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.12);
+    }
+    .range-value {
+      font-size: 12px; font-weight: 600; color: var(--accent-light);
+      min-width: 36px; text-align: right;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    /* ── Device toggle ───────────────────────── */
+    .device-toggle {
+      display: flex; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 3px; gap: 3px;
+    }
+    .device-toggle button {
+      flex: 1; padding: 7px 10px; border: none; border-radius: 7px;
+      background: transparent; color: var(--text-muted);
+      font-size: 11px; font-weight: 600; font-family: inherit; cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+    }
+    .device-toggle button.active {
+      background: linear-gradient(135deg, var(--accent), #6d28d9);
+      color: #fff; box-shadow: 0 2px 10px rgba(124,58,237,0.35);
+    }
+    .device-toggle button:not(.active):hover {
+      background: rgba(124,58,237,0.08); color: var(--text);
+    }
+
+    /* ── Section dividers ────────────────────── */
+    .settings-divider { height: 1px; background: var(--border); margin: 16px 0; opacity: 0.4; }
+    .settings-section-title {
+      font-size: 9px; font-weight: 700; color: var(--accent-light);
+      text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .settings-section-title::after {
+      content: ''; flex: 1; height: 1px;
+      background: linear-gradient(90deg, var(--border), transparent);
+    }
+
+    /* ── Buttons ──────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; padding: 11px 22px; border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 600; font-family: inherit;
+      border: none; cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+      width: 100%; position: relative; overflow: hidden;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #6d28d9); color: #fff;
+    }
+    .btn-primary::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+      background-size: 200% 100%; animation: shimmer 3s infinite;
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .btn-primary:hover:not(:disabled)::before { opacity: 1; }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(124,58,237,0.45);
+    }
+    .btn-primary:active:not(:disabled) { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-secondary {
+      background: var(--surface2); color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      border-color: var(--accent); background: rgba(124,58,237,0.06);
+    }
+
+    /* ── Progress ─────────────────────────────── */
+    .progress-section { display: none; }
+    .progress-section.visible { display: block; animation: fadeInUp 0.4s ease; }
+    .progress-bar-track {
+      height: 7px; background: var(--surface2);
+      border-radius: 4px; overflow: hidden; margin: 10px 0;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #ec4899, var(--accent));
+      background-size: 200% 100%;
+      border-radius: 4px;
+      transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+      width: 0%;
+      animation: progressShimmer 2s linear infinite;
+    }
+    .progress-bar-fill.done {
+      background: var(--success);
+      animation: none;
+    }
+    .progress-info { display: flex; justify-content: space-between; font-size: 12px; }
+    .progress-phase { color: var(--text-muted); }
+    .progress-pct {
+      color: var(--accent-light); font-weight: 700;
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    }
+
+    /* ── Log ──────────────────────────────────── */
+    .log-container {
+      background: #080a12;
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      max-height: 220px;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      line-height: 1.8;
+      border: 1px solid rgba(46,49,80,0.5);
+    }
+    .log-container::-webkit-scrollbar { width: 4px; }
+    .log-container::-webkit-scrollbar-track { background: transparent; }
+    .log-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .log-line { color: var(--text-muted); animation: fadeIn 0.2s ease; }
+    .log-line.fight { color: var(--danger); font-weight: 600; }
+    .log-line.success { color: var(--success); font-weight: 600; }
+
+    /* ── Fight alerts ─────────────────────────── */
+    .fight-alerts { display: none; }
+    .fight-alerts.visible { display: block; animation: fadeInUp 0.35s ease; }
+    .fight-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      background: var(--danger-bg);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: var(--radius-sm);
+      margin-bottom: 8px;
+    }
+    .fight-icon {
+      width: 30px; height: 30px;
+      background: rgba(239,68,68,0.2);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0;
+    }
+    .fight-info .fight-title { font-size: 12px; font-weight: 600; color: var(--danger); }
+    .fight-info .fight-detail { font-size: 11px; color: var(--text-muted); }
+
+    /* ── Output ───────────────────────────────── */
+    .output-section { display: none; }
+    .output-section.visible { display: block; animation: fadeInUp 0.5s ease; }
+    .video-player {
+      width: 100%; border-radius: var(--radius-sm);
+      background: #000; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .output-actions { display: flex; gap: 10px; margin-top: 12px; }
+    .output-actions .btn { width: auto; flex: 1; }
+
+    /* ── Status badge ─────────────────────────── */
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 600;
+      padding: 4px 12px; border-radius: 20px;
+      transition: all 0.3s;
+    }
+    .status-badge.processing {
+      background: rgba(124,58,237,0.15); color: var(--accent-light);
+    }
+    .status-badge.complete {
+      background: var(--success-bg); color: var(--success);
+    }
+    .status-badge.error {
+      background: var(--danger-bg); color: var(--danger);
+    }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor;
+    }
+    .status-badge.processing .status-dot { animation: pulse 1.5s infinite; }
+
+    /* ── Spinner + check icon ────────────────── */
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid transparent; border-top-color: currentColor;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    .check-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--success); color: #fff;
+      animation: checkPop 0.4s ease;
+    }
+    .check-icon svg { width: 11px; height: 11px; }
+    .error-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--danger); color: #fff;
+      animation: checkPop 0.4s ease;
+    }
+    .error-icon svg { width: 11px; height: 11px; }
+
+    /* ── Summary grid ─────────────────────────── */
+    .summary-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px;
+    }
+    .summary-item {
+      background: var(--surface2); padding: 12px;
+      border-radius: var(--radius-sm); text-align: center;
+      border: 1px solid var(--border); transition: all 0.3s;
+      animation: fadeInUp 0.4s ease backwards;
+    }
+    .summary-item:nth-child(1) { animation-delay: 0.05s; }
+    .summary-item:nth-child(2) { animation-delay: 0.1s; }
+    .summary-item:nth-child(3) { animation-delay: 0.15s; }
+    .summary-item:nth-child(4) { animation-delay: 0.2s; }
+    .summary-item:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .summary-item .value {
+      font-size: 20px; font-weight: 700;
+      color: var(--accent-light);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .summary-item .label {
+      font-size: 9px; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;
+    }
+
+    /* ── Info icon ────────────────────────────── */
+    .info-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 13px; height: 13px; border-radius: 50%;
+      background: rgba(124,58,237,0.15); color: var(--accent-light);
+      font-size: 8px; font-weight: 700; cursor: help; flex-shrink: 0;
+    }
+    .info-icon::after { content: 'i'; }
+
+    /* ── Two-col results row ─────────────────── */
+    .results-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .results-row.visible { display: grid; }
+    .results-row { display: none; }
+    @media (max-width: 800px) {
+      .results-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Abstract background -->
+  <div class="bg-shapes">
+    <div class="bg-grid"></div>
+    <div class="bg-blob bg-blob-1"></div>
+    <div class="bg-blob bg-blob-2"></div>
+    <div class="bg-blob bg-blob-3"></div>
+    <div class="bg-blob bg-blob-4"></div>
+    <div class="bg-line bg-line-1"></div>
+    <div class="bg-line bg-line-2"></div>
+    <div class="bg-line bg-line-3"></div>
+    <div class="bg-corner bg-corner-tl"></div>
+    <div class="bg-corner bg-corner-br"></div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+    </div>
+    <div>
+      <h1>Surveillance System</h1>
+      <p>Action Recognition &mdash; SlowFast + YOLOv8 + DeepSort</p>
+    </div>
+    <div class="pipeline-badge">
+      <span class="badge">YOLOv8</span>
+      <span class="badge">DeepSort</span>
+      <span class="badge">SlowFast R50</span>
+      <span class="badge">80 AVA Classes</span>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- Left column -->
+    <div class="left-col">
+
+      <!-- Upload card -->
+      <div class="card" id="uploadCard">
+        <div class="card-header">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload Video
+        </div>
+        <div class="card-body">
+          <div class="upload-zone" id="dropZone">
+            <div class="upload-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <h3>Drop your video here</h3>
+            <p>or click to browse &mdash; MP4, AVI, MOV, MKV, WebM (max 500 MB)</p>
+            <input type="file" id="fileInput" accept="video/*">
+          </div>
+          <div class="file-preview" id="filePreview">
+            <div class="file-icon">
+              <svg width="20" height="20" fill="none" stroke="var(--accent-light)" stroke-width="2" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            </div>
+            <div class="file-info">
+              <div class="name" id="fileName"></div>
+              <div class="size" id="fileSize"></div>
+            </div>
+            <button class="file-remove" id="fileRemove">&times;</button>
+          </div>
+          <button class="btn btn-primary" id="processBtn" disabled style="margin-top:14px">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Start Processing
+          </button>
+        </div>
+      </div>
+
+      <!-- Progress card -->
+      <div class="card progress-section mt" id="progressCard">
+        <div class="card-header" id="progressHeader">
+          <span class="spinner" id="progressSpinner"></span>
+          <span id="progressTitle">Processing</span>
+          <span class="status-badge processing" id="statusBadge" style="margin-left:auto">
+            <span class="status-dot"></span>
+            <span id="statusText">Starting...</span>
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="progress-info">
+            <span class="progress-phase" id="progressPhase">Initializing...</span>
+            <span class="progress-pct" id="progressPct">0%</span>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="progressBar"></div>
+          </div>
+          <div class="summary-grid" id="summaryGrid" style="display:none">
+            <div class="summary-item">
+              <div class="value" id="sumFrames">-</div>
+              <div class="label">Frames</div>
+            </div>
+            <div class="summary-item">
+              <div class="value" id="sumTime">-</div>
+              <div class="label">Wall Time</div>
+            </div>
+            <div class="summary-item">
+              <div class="value" id="sumFights">0</div>
+              <div class="label">Fights</div>
+            </div>
+            <div class="summary-item">
+              <div class="value" id="sumResolution">-</div>
+              <div class="label">Resolution</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fight alerts + Log — side by side under progress -->
+      <div class="results-row" id="resultsRow">
+        <div class="card fight-alerts" id="fightCard" style="animation-delay:0.05s">
+          <div class="card-header" style="color:var(--danger)">
+            <svg width="14" height="14" fill="none" stroke="var(--danger)" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Fight Detections
+            <span class="badge" id="fightCount" style="margin-left:auto;background:var(--danger-bg);color:var(--danger);border-color:rgba(239,68,68,0.2)">0</span>
+          </div>
+          <div class="card-body" id="fightList">
+            <p style="font-size:12px;color:var(--text-muted)">No fights detected yet.</p>
+          </div>
+        </div>
+
+        <div class="card" id="logCard" style="animation-delay:0.1s">
+          <div class="card-header">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            Processing Log
+          </div>
+          <div class="card-body" style="padding:10px">
+            <div class="log-container" id="logContainer"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Output card -->
+      <div class="card output-section mt" id="outputCard">
+        <div class="card-header">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          Annotated Output
+        </div>
+        <div class="card-body">
+          <video class="video-player" id="outputVideo" controls preload="auto"></video>
+          <div class="output-actions">
+            <a class="btn btn-primary" id="downloadBtn" download>
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download Video
+            </a>
+            <button class="btn btn-secondary" id="newJobBtn">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1014.85-3.36L23 6"/></svg>
+              Process Another
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column — Settings (sticky) -->
+    <div class="right-col">
+      <div class="card" id="settingsCard">
+        <div class="card-header">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          Settings
+        </div>
+        <div class="settings-lock-banner">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          Locked while processing
+        </div>
+        <div class="card-body">
+          <div class="settings-section-title">Compute</div>
+          <div class="form-group">
+            <label>Device <span class="info-icon"></span></label>
+            <div class="device-toggle" id="deviceToggle">
+              <button data-value="cpu">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="15" x2="23" y2="15"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="15" x2="4" y2="15"/></svg>
+                CPU
+              </button>
+              <button class="active" data-value="auto">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                GPU
+              </button>
+            </div>
+            <div class="form-hint">GPU auto-detects: CUDA (NVIDIA) or MPS (Apple Silicon). Falls back to CPU if unavailable.</div>
+          </div>
+          <div class="settings-divider"></div>
+
+          <div class="settings-section-title">Detection</div>
+          <div class="form-group">
+            <label>YOLO Model <span class="info-icon"></span></label>
+            <select id="yoloModel">
+              <option value="yolov8s.pt">YOLOv8s &mdash; Fast, lighter</option>
+              <option value="yolov8m.pt">YOLOv8m &mdash; Balanced accuracy</option>
+            </select>
+            <div class="form-hint">Person detection model. s = faster, m = more accurate.</div>
+          </div>
+          <div class="form-group">
+            <label>Confidence <span class="info-icon"></span></label>
+            <div class="range-row">
+              <input type="range" id="confSlider" min="0.1" max="0.9" step="0.05" value="0.4">
+              <span class="range-value" id="confValue">0.40</span>
+            </div>
+            <div class="form-hint">Min score to keep a detection. Lower = more detections but more false positives.</div>
+          </div>
+          <div class="form-group">
+            <label>IoU (NMS) <span class="info-icon"></span></label>
+            <div class="range-row">
+              <input type="range" id="iouSlider" min="0.1" max="0.9" step="0.05" value="0.45">
+              <span class="range-value" id="iouValue">0.45</span>
+            </div>
+            <div class="form-hint">Overlap threshold for merging duplicate boxes.</div>
+          </div>
+          <div class="settings-divider"></div>
+
+          <div class="settings-section-title">Performance</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Detect Every</label>
+              <select id="detectEvery">
+                <option value="1">Every frame</option>
+                <option value="2" selected>Every 2nd</option>
+                <option value="3">Every 3rd</option>
+                <option value="5">Every 5th</option>
+              </select>
+              <div class="form-hint">Higher = faster but less accurate.</div>
+            </div>
+            <div class="form-group">
+              <label>Image Size</label>
+              <select id="imsize">
+                <option value="320">320px</option>
+                <option value="480">480px</option>
+                <option value="640" selected>640px</option>
+                <option value="960">960px</option>
+                <option value="1280">1280px</option>
+              </select>
+              <div class="form-hint">Higher = sharper output but slower.</div>
+            </div>
+          </div>
+          <div class="settings-divider"></div>
+
+          <div class="settings-section-title">Alerts</div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Fight Cooldown <span class="info-icon"></span></label>
+            <div class="range-row">
+              <input type="range" id="cooldownSlider" min="0" max="60" step="5" value="0">
+              <span class="range-value" id="cooldownValue">0s</span>
+            </div>
+            <div class="form-hint">Seconds between Telegram alerts. 0 = alert on every fight.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+const dropZone     = $('dropZone');
+const fileInput    = $('fileInput');
+const filePreview  = $('filePreview');
+const fileName     = $('fileName');
+const fileSize     = $('fileSize');
+const fileRemove   = $('fileRemove');
+const processBtn   = $('processBtn');
+const progressCard = $('progressCard');
+const outputCard   = $('outputCard');
+const resultsRow   = $('resultsRow');
+const fightCard    = $('fightCard');
+
+let selectedFile = null;
+let currentJobId = null;
+let pollInterval = null;
+let selectedDevice = 'auto';
+
+// Device toggle
+document.querySelectorAll('#deviceToggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#deviceToggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedDevice = btn.dataset.value;
+  });
+});
+
+// Sliders
+$('confSlider').oninput = e => $('confValue').textContent = parseFloat(e.target.value).toFixed(2);
+$('iouSlider').oninput  = e => $('iouValue').textContent  = parseFloat(e.target.value).toFixed(2);
+$('cooldownSlider').oninput = e => $('cooldownValue').textContent = e.target.value + 's';
+
+// Drag and drop
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  selectedFile = file;
+  fileName.textContent = file.name;
+  fileSize.textContent = formatSize(file.size);
+  filePreview.classList.add('visible');
+  processBtn.disabled = false;
+}
+fileRemove.onclick = () => {
+  selectedFile = null;
+  fileInput.value = '';
+  filePreview.classList.remove('visible');
+  processBtn.disabled = true;
+};
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+// Process
+processBtn.onclick = async () => {
+  if (!selectedFile) return;
+  processBtn.disabled = true;
+  processBtn.innerHTML = '<span class="spinner"></span> Uploading...';
+
+  const formData = new FormData();
+  formData.append('video', selectedFile);
+  formData.append('yolo_model', $('yoloModel').value);
+  formData.append('conf', $('confSlider').value);
+  formData.append('iou', $('iouSlider').value);
+  formData.append('detect_every', $('detectEvery').value);
+  formData.append('imsize', $('imsize').value);
+  formData.append('fight_cooldown', $('cooldownSlider').value);
+  formData.append('device', selectedDevice);
+
+  try {
+    const resp = await fetch('/upload', { method: 'POST', body: formData });
+    const data = await resp.json();
+    if (data.error) { alert(data.error); resetProcessBtn(); return; }
+    currentJobId = data.job_id;
+    showProcessing();
+    startPolling();
+  } catch (err) {
+    alert('Upload failed: ' + err.message);
+    resetProcessBtn();
+  }
+};
+
+function resetProcessBtn() {
+  processBtn.disabled = false;
+  processBtn.innerHTML = `
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    Start Processing`;
+}
+
+function lockSettings() {
+  $('settingsCard').classList.add('settings-locked');
+}
+function unlockSettings() {
+  $('settingsCard').classList.remove('settings-locked');
+}
+
+function showProcessing() {
+  $('progressSpinner').className = 'spinner';
+  $('progressSpinner').innerHTML = '';
+  $('progressTitle').textContent = 'Processing';
+  $('progressBar').className = 'progress-bar-fill';
+
+  progressCard.classList.add('visible');
+  resultsRow.style.display = 'grid';
+  fightCard.classList.add('visible');
+  outputCard.classList.remove('visible');
+  $('summaryGrid').style.display = 'none';
+  $('logContainer').innerHTML = '';
+  $('fightList').innerHTML = '<p style="font-size:12px;color:var(--text-muted)">No fights detected yet.</p>';
+  $('fightCount').textContent = '0';
+  lockSettings();
+}
+
+let lastLogCount = 0;
+
+function startPolling() {
+  lastLogCount = 0;
+  pollInterval = setInterval(async () => {
+    try {
+      const resp = await fetch(`/status/${currentJobId}`);
+      const job  = await resp.json();
+      if (job.error) return;
+
+      $('progressPhase').textContent = job.phase || '';
+      $('progressPct').textContent   = (job.progress || 0) + '%';
+      $('progressBar').style.width   = (job.progress || 0) + '%';
+
+      const badge = $('statusBadge');
+      const sText = $('statusText');
+
+      if (job.status === 'complete') {
+        badge.className = 'status-badge complete';
+        sText.textContent = 'Complete';
+        // Replace spinner with check
+        $('progressSpinner').className = 'check-icon';
+        $('progressSpinner').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+        $('progressTitle').textContent = 'Complete';
+        $('progressBar').classList.add('done');
+      } else if (job.status === 'error') {
+        badge.className = 'status-badge error';
+        sText.textContent = 'Error';
+        $('progressSpinner').className = 'error-icon';
+        $('progressSpinner').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        $('progressTitle').textContent = 'Failed';
+      } else {
+        badge.className = 'status-badge processing';
+        sText.textContent = 'Processing';
+      }
+
+      // Logs
+      if (job.logs && job.logs.length > lastLogCount) {
+        const container = $('logContainer');
+        for (let i = lastLogCount; i < job.logs.length; i++) {
+          const div = document.createElement('div');
+          div.className = 'log-line';
+          if (job.logs[i].includes('FIGHT')) div.className += ' fight';
+          if (job.logs[i].includes('Done!')) div.className += ' success';
+          div.textContent = job.logs[i];
+          container.appendChild(div);
+        }
+        container.scrollTop = container.scrollHeight;
+        lastLogCount = job.logs.length;
+      }
+
+      // Fights
+      if (job.fights && job.fights.length > 0) {
+        const countEl = $('fightCount');
+        if (countEl.textContent !== String(job.fights.length)) {
+          countEl.textContent = job.fights.length;
+          countEl.style.animation = 'none';
+          countEl.offsetHeight;
+          countEl.style.animation = 'badgeBounce 0.4s ease';
+        }
+        $('fightList').innerHTML = job.fights.map(f => `
+          <div class="fight-item">
+            <div class="fight-icon">&#x26A0;</div>
+            <div class="fight-info">
+              <div class="fight-title">Fight Detected</div>
+              <div class="fight-detail">Frame ${f.frame} &mdash; ${f.time} into video</div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      if (job.status === 'complete') {
+        clearInterval(pollInterval);
+        resetProcessBtn();
+        unlockSettings();
+        showOutput(job);
+      }
+      if (job.status === 'error') {
+        clearInterval(pollInterval);
+        resetProcessBtn();
+        unlockSettings();
+      }
+    } catch (err) { console.error('Poll error', err); }
+  }, 1500);
+}
+
+function showOutput(job) {
+  outputCard.classList.add('visible');
+  const videoUrl = `/output/${job.output_file}`;
+  const video = $('outputVideo');
+  video.src = videoUrl;
+  video.load();
+  $('downloadBtn').href = videoUrl;
+  $('downloadBtn').download = `annotated_${job.input_file || 'output.mp4'}`;
+
+  $('summaryGrid').style.display = 'grid';
+  $('sumFrames').textContent = job.total_frames || '-';
+  $('sumTime').textContent   = job.elapsed || '-';
+  $('sumFights').textContent = (job.fights || []).length;
+  if (job.video_info) {
+    $('sumResolution').textContent = job.video_info.width + 'x' + job.video_info.height;
+  }
+
+  // Scroll to output
+  setTimeout(() => outputCard.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+}
+
+$('newJobBtn').onclick = () => {
+  selectedFile = null;
+  fileInput.value = '';
+  filePreview.classList.remove('visible');
+  processBtn.disabled = true;
+  resetProcessBtn();
+  progressCard.classList.remove('visible');
+  outputCard.classList.remove('visible');
+  resultsRow.style.display = 'none';
+  fightCard.classList.remove('visible');
+  unlockSettings();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+</script>
+</body>
+</html>
